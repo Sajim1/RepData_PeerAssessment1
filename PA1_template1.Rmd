@@ -1,0 +1,131 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+## Loading and preprocessing the data
+```{r setup, include=FALSE}
+
+unzip("activity.zip")
+```
+
+
+This is an R Markdown document. here is the code for reading the activity data:
+
+```{r reading}
+DT <- read.table("activity.csv",sep=',',header=T)
+DT$date <- as.Date(DT$date)
+head(DT)
+summary(DT)
+```
+
+
+## What is mean total number of steps taken per day?
+
+Here is code for calculating sum of steps per day:
+
+```{r sum_steps}
+sum_steps_per_days <- with(DT[complete.cases(DT),],tapply(steps,date,sum))
+hist(sum_steps_per_days,n=30)
+
+mean_s <- round(mean(sum_steps_per_days),1)
+median_s <- median(sum_steps_per_days)
+
+summary(sum_steps_per_days)
+```
+
+the histogram of number of steps taken each day is plotted above. the mean and median of total number of steps taken per day is `r mean_s` and `r median_s`, respectively.
+
+## What is the average daily activity pattern?
+
+Here is code for calculating mean number of steps per interval:
+
+```{r mean_steps}
+mean_steps_per_interval <- with(DT[complete.cases(DT),],tapply(steps,interval,mean))
+int <- names(mean_steps_per_interval)
+plot(int,mean_steps_per_interval,xlab="interval")
+
+max_int <- int[which.max(mean_steps_per_interval)]
+
+```
+
+the time series of average number of steps taken in each interval is plotted above. 5-minute interval of `r max_int`, on average across all the days in the dataset, contains the maximum number of steps.
+
+
+## Imputing missing values
+
+Here is code for dealing with missing values:
+
+```{r missing values}
+
+num_of_missing <- sum(!complete.cases(DT))
+
+DT_full <- DT
+ 
+for (i in 1:length(DT$date)) {
+ if (is.na(DT$steps[i])) {
+DT_full$steps[i] <- mean_steps_per_interval[as.numeric(int)==DT$interval[i]]
+}
+}
+  
+summary(DT_full)
+
+sum_steps_per_daysf <- with(DT_full,tapply(steps,date,sum))
+hist(sum_steps_per_daysf,n=30)
+mean_sf <- mean(sum_steps_per_daysf)
+median_sf <- median(sum_steps_per_daysf)
+
+summary(sum_steps_per_daysf)
+
+```
+
+there are `r num_of_missing`number of rows with NA in the date set. The missing values are replaced with mean for that 5-minute interval.
+
+the histogram of number of steps taken each day for the data with replaced missing vales is plotted above. the mean and median of total number of steps taken per day is `r mean_sf` and `r median_sf`, respectively. As it is clear, the numbers are slightly diffrent from the dataset without replaced missing values.
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+Here is code for comparing weeknd data with weekday data:
+
+```{r weeknd vs weekdays values}
+
+DT_full$weekdays <- weekdays(DT_full$date)
+
+DT_full$wkvswnd[(DT_full$weekdays == "Saturday" | DT_full$weekdays == "Sunday")] <- "weekend"
+DT_full$wkvswnd[!(DT_full$weekdays == "Saturday" | DT_full$weekdays == "Sunday")] <- "weekday"
+
+DTWeekend <- subset(DT_full, wkvswnd == "weekend")
+DTWeekday <- subset(DT_full, wkvswnd == "weekday")
+        
+mean_steps_per_interval_weekend <- with(DTWeekend,aggregate(steps,by=list(interval),mean))
+
+colnames(mean_steps_per_interval_weekend) <- c("interval", "mean_steps")
+
+mean_steps_per_interval_weekend$wkvswnd <- "weekend"
+
+mean_steps_per_interval_weekday <- with(DTWeekday,aggregate(steps,by=list(interval),mean))
+
+colnames(mean_steps_per_interval_weekday) <- c("interval", "mean_steps")
+
+mean_steps_per_interval_weekday$wkvswnd <- "weekday"
+
+mean_steps_per_interval_all <- rbind(mean_steps_per_interval_weekend, mean_steps_per_interval_weekday)
+
+```
+
+
+```{r,echo = FALSE}
+# plot
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+
+ggplot(mean_steps_per_interval_all, aes(interval,  mean_steps)) + geom_line() + facet_grid(wkvswnd ~ .)
+
+```
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
